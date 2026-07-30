@@ -1,0 +1,5 @@
+CREATE TABLE users (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    telegram_id INT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);

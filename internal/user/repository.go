@@ -26,10 +26,7 @@ func (r Repository) save(id int, user *User) error {
 		return err
 	}
 
-	user = &User{
-		int(newId),
-		int(id),
-	}
+	*user = User{int(newId), int(id)}
 
 	return nil
 }

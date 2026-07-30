@@ -28,7 +28,7 @@ func (r *Repository) Save(c *Category) error {
 		return err
 	}
 
-	c.UserId = int(id)
+	c.ID = int(id)
 
 	return nil
 }

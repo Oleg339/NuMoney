@@ -61,7 +61,7 @@ func main() {
 		log.Panic(err)
 	}
 
-	bot.Debug = true
+	bot.Debug, _ = strconv.ParseBool(os.Getenv("BOT_DEBUG"))
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
@@ -101,7 +101,7 @@ func main() {
 					Type:   catType,
 				})
 			case StateAddTransactionAmount:
-				text := strings.Replace(update.Message.Text, ",", ".", 1)
+				text = strings.Replace(update.Message.Text, ",", ".", 1)
 				amount, err := strconv.ParseFloat(text, 64)
 
 				if err != nil {
@@ -352,7 +352,7 @@ func main() {
 						msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, text)
 
 						bot.Send(msg)
-						continue
+						break
 					}
 				}
 			}

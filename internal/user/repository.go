@@ -5,15 +5,20 @@ import (
 	"log"
 )
 
-type Repository struct {
+type Repository interface {
+	Save(id int, user *User) error
+	GetByTelegramId(id int64) (User, error)
+}
+
+type MySQLRepository struct {
 	db *sql.DB
 }
 
-func NewRepository(db *sql.DB) Repository {
-	return Repository{db}
+func NewMySQLRepository(db *sql.DB) *MySQLRepository {
+	return &MySQLRepository{db}
 }
 
-func (r Repository) save(id int, user *User) error {
+func (r MySQLRepository) Save(id int, user *User) error {
 	result, err := r.db.Exec("insert into users (telegram_id) values (?)", id)
 
 	if err != nil {
@@ -31,13 +36,13 @@ func (r Repository) save(id int, user *User) error {
 	return nil
 }
 
-func (r *Repository) GetByTelegramId(id int64) (User, error) {
+func (r *MySQLRepository) GetByTelegramId(id int64) (User, error) {
 	var user User
 	log.Print("ID: ", id)
 	error := r.db.QueryRow("select id, telegram_id from users where telegram_id = ?", id).Scan(&user.ID, &user.TelegramId)
 
 	if error == sql.ErrNoRows {
-		r.save(int(id), &user)
+		r.Save(int(id), &user)
 	}
 
 	log.Print("User: ", user)

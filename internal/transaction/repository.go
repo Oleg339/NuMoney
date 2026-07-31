@@ -6,7 +6,12 @@ import (
 	"time"
 )
 
-type Repository struct {
+type Repository interface {
+	Save(t *Transaction) error
+	GetStatsForPeriodFromDb(userId int, from time.Time, to time.Time) ([]Stat, error)
+}
+
+type MySQLRepository struct {
 	db *sql.DB
 }
 
@@ -16,13 +21,11 @@ type Stat struct {
 	Amount int
 }
 
-func NewRepository(db *sql.DB) Repository {
-	return Repository{db}
+func NewMySQLRepository(db *sql.DB) *MySQLRepository {
+	return &MySQLRepository{db}
 }
 
-func (r *Repository) Save(t *Transaction) error {
-	defer r.db.Close()
-
+func (r *MySQLRepository) Save(t *Transaction) error {
 	res, err := r.db.Exec("insert into transactions (category_id, user_id, amount, comment) values (?,?,?,?)", t.CategoryId, t.UserId, t.Amount, t.Comment)
 
 	if err != nil {
@@ -40,9 +43,7 @@ func (r *Repository) Save(t *Transaction) error {
 	return nil
 }
 
-func (r *Repository) GetStatsForPeriodFromDb(userId int, from time.Time, to time.Time) ([]Stat, error) {
-	defer r.db.Close()
-
+func (r *MySQLRepository) GetStatsForPeriodFromDb(userId int, from time.Time, to time.Time) ([]Stat, error) {
 	rows, err := r.db.Query(`
           SELECT c.name, c.type, SUM(t.amount)
           FROM transactions t

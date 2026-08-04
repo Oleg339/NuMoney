@@ -6,4 +6,3 @@ type Category struct {
 	Type   string
 	UserId int
 }
-

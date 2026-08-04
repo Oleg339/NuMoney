@@ -51,8 +51,17 @@ func (r *MySQLRepository) GetByUserId(id int) ([]Category, error) {
 
 	for rows.Next() {
 		var c Category
-		rows.Scan(&c.ID, &c.Name, &c.Type)
+		e := rows.Scan(&c.ID, &c.Name, &c.Type)
+
+		if e != nil {
+			return nil, e
+		}
+
 		categories = append(categories, c)
+	}
+
+	if e := rows.Err(); e != nil {
+		return nil, e
 	}
 
 	return categories, nil
@@ -60,6 +69,7 @@ func (r *MySQLRepository) GetByUserId(id int) ([]Category, error) {
 
 func (r *MySQLRepository) GetByUserIdAndType(id int, Type string) ([]Category, error) {
 	var categories []Category
+
 	rows, err := r.db.Query("select id, name, type from categories where user_id = ? and type = ?", id, Type)
 	if err != nil {
 		return nil, err
@@ -69,8 +79,17 @@ func (r *MySQLRepository) GetByUserIdAndType(id int, Type string) ([]Category, e
 
 	for rows.Next() {
 		var c Category
-		rows.Scan(&c.ID, &c.Name, &c.Type)
+		e := rows.Scan(&c.ID, &c.Name, &c.Type)
+
+		if e != nil {
+			return nil, e
+		}
+
 		categories = append(categories, c)
+	}
+
+	if e := rows.Err(); e != nil {
+		return nil, e
 	}
 
 	return categories, nil

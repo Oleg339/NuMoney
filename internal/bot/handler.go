@@ -46,12 +46,12 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 
 		userId := int64(u.ID)
 
-		switch states.state[userId] {
+		switch states.Get(userId) {
 
 		case "add_expense_category", "add_income_category":
 			catType := "income"
 
-			if states.state[userId] == "add_expense_category" {
+			if states.Get(userId) == "add_expense_category" {
 				catType = "expense"
 			}
 
@@ -67,18 +67,18 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 			if err != nil {
 				text = "Введите корректное число:"
 
-				states.state[userId] = StateAddTransactionAmount
+				states.Set(userId, StateAddTransactionAmount)
 				keyboard = tgbotapi.InlineKeyboardMarkup{}
 
 			} else {
 				h.tRepo.Save(&transaction.Transaction{
 					Amount:     int(amount * 100),
-					CategoryId: states.selectedCategory[userId],
+					CategoryId: states.GetCategory(userId),
 					UserId:     u.ID,
 				})
 
-				states.selectedCategory[userId] = 0
-				states.state[userId] = StateNone
+				states.SetCategory(userId, 0)
+				states.Set(userId, StateNone)
 			}
 
 		}
@@ -99,12 +99,12 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 		userId := int64(u.ID)
 
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		h.bot.Request(callback)
 
-		if states.state[userId] == StateStaistics {
+		if states.Get(userId) == StateStaistics {
 			var from time.Time
 			var to time.Time
 			now := time.Now()
@@ -156,23 +156,23 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 		case "Statistics":
 			text = "Выберите период"
 			keyboard = ChoseStatPeriod()
-			states.state[userId] = StateStaistics
+			states.Set(userId, StateStaistics)
 
 		case "add_expense_category", "add_income_category":
-			states.state[userId] = update.CallbackQuery.Data
+			states.Set(userId, update.CallbackQuery.Data)
 			text = "Введите название категории"
 			keyboard = Back()
 
 		case "back":
 			text = "Выберите действие:"
 			keyboard = BaseMenu()
-			states.state[userId] = StateNone
+			states.Set(userId, StateNone)
 
 		case "Categories":
 			categories, err := h.cRepo.GetByUserId(u.ID)
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			if len(categories) == 0 {
@@ -184,7 +184,7 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 				markup, err := CategoriesJSON(categories)
 
 				if err != nil {
-					log.Fatal(err)
+					return err
 				}
 				resp, err := h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
 					"chat_id":      strconv.FormatInt(int64(u.TelegramId), 10),
@@ -201,12 +201,12 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 		case "Expense", "Income":
 			text = "Выберите категорию"
 
-			states.state[userId] = StateAddTransaction
+			states.Set(userId, StateAddTransaction)
 
 			categories, err := h.cRepo.GetByUserIdAndType(u.ID, strings.ToLower(update.CallbackQuery.Data))
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			markup, err := ChoseCategoryJSON(categories)
@@ -223,7 +223,7 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 			})
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			fmt.Print(resp)
@@ -231,17 +231,17 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 			return nil
 		}
 
-		if states.state[userId] == StateAddTransaction {
+		if states.Get(userId) == StateAddTransaction {
 			categories, err := h.cRepo.GetByUserId(u.ID)
 
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			for _, cat := range categories {
 				if fmt.Sprint(cat.ID) == update.CallbackQuery.Data {
-					states.selectedCategory[userId] = cat.ID
-					states.state[userId] = StateAddTransactionAmount
+					states.SetCategory(userId, cat.ID)
+					states.Set(userId, StateAddTransactionAmount)
 					text = "Введите сумму:"
 					msg = tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, text)
 

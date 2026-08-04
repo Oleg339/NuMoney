@@ -39,7 +39,7 @@ func main() {
 	log.Printf("Authorized on account %s", b.Self.UserName)
 
 	update := tgbotapi.NewUpdate(0)
-	
+
 	update.Timeout = 60
 
 	updates := b.GetUpdatesChan(update)
@@ -65,8 +65,6 @@ func getConnection() *sql.DB {
 		"mysql",
 		cStr,
 	)
-
-	log.Print(cStr)
 
 	if err != nil {
 		log.Fatal(err)

@@ -2,6 +2,7 @@ package user
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 )
 
@@ -38,14 +39,21 @@ func (r MySQLRepository) Save(id int, user *User) error {
 
 func (r *MySQLRepository) GetByTelegramId(id int64) (User, error) {
 	var user User
-	log.Print("ID: ", id)
-	error := r.db.QueryRow("select id, telegram_id from users where telegram_id = ?", id).Scan(&user.ID, &user.TelegramId)
 
-	if error == sql.ErrNoRows {
-		r.Save(int(id), &user)
+	err := r.db.QueryRow("select id, telegram_id from users where telegram_id = ?", id).Scan(&user.ID, &user.TelegramId)
+
+	switch {
+	case err == nil:
+		return user, nil
+
+	case errors.Is(err, sql.ErrNoRows):
+		if err := r.Save(int(id), &user); err != nil {
+			return User{}, err
+		}
+
+		return user, nil
+
+	default:
+		return User{}, err
 	}
-
-	log.Print("User: ", user)
-
-	return user, nil
 }

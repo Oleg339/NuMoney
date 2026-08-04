@@ -56,6 +56,8 @@ func (r *MySQLRepository) GetStatsForPeriodFromDb(userId int, from time.Time, to
 		return nil, err
 	}
 
+	defer rows.Close()
+
 	var stats []Stat
 
 	for rows.Next() {
@@ -63,8 +65,9 @@ func (r *MySQLRepository) GetStatsForPeriodFromDb(userId int, from time.Time, to
 		err := rows.Scan(&stat.Name, &stat.Type, &stat.Amount)
 
 		if err != nil {
-			log.Println("Scan error:", err)
+			return nil, err
 		}
+
 		stats = append(stats, stat)
 	}
 

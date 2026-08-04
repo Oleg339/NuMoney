@@ -2,7 +2,6 @@ package bot
 
 import (
 	"fmt"
-	"log"
 	"numoney/internal/category"
 	"numoney/internal/transaction"
 	"numoney/internal/user"
@@ -31,8 +30,6 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 	var keyboard tgbotapi.InlineKeyboardMarkup
 	var msg tgbotapi.EditMessageTextConfig
 
-	fmt.Println(states)
-
 	if update.Message != nil {
 		text = "Выберите действие:"
 
@@ -55,11 +52,16 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 				catType = "expense"
 			}
 
-			h.cRepo.Save(&category.Category{
+			err := h.cRepo.Save(&category.Category{
 				Name:   update.Message.Text,
 				UserId: u.ID,
 				Type:   catType,
 			})
+
+			if err != nil {
+				return err
+			}
+
 		case StateAddTransactionAmount:
 			text = strings.Replace(update.Message.Text, ",", ".", 1)
 			amount, err := strconv.ParseFloat(text, 64)
@@ -71,11 +73,15 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 				keyboard = tgbotapi.InlineKeyboardMarkup{}
 
 			} else {
-				h.tRepo.Save(&transaction.Transaction{
+				err := h.tRepo.Save(&transaction.Transaction{
 					Amount:     int(amount * 100),
 					CategoryId: states.GetCategory(userId),
 					UserId:     u.ID,
 				})
+
+				if err != nil {
+					return err
+				}
 
 				states.SetCategory(userId, 0)
 				states.Set(userId, StateNone)
@@ -186,14 +192,16 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 				if err != nil {
 					return err
 				}
-				resp, err := h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
+				_, err = h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
 					"chat_id":      strconv.FormatInt(int64(u.TelegramId), 10),
 					"message_id":   fmt.Sprint(update.CallbackQuery.Message.MessageID),
 					"text":         text,
 					"reply_markup": string(markup),
 				})
 
-				fmt.Print(resp)
+				if err != nil {
+					return err
+				}
 
 				return nil
 			}
@@ -215,7 +223,7 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 				return err
 			}
 
-			resp, err := h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
+			_, err = h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
 				"chat_id":      strconv.FormatInt(int64(u.TelegramId), 10),
 				"message_id":   fmt.Sprint(update.CallbackQuery.Message.MessageID),
 				"text":         text,
@@ -225,8 +233,6 @@ func (h *Handler) Handle(update tgbotapi.Update) error {
 			if err != nil {
 				return err
 			}
-
-			fmt.Print(resp)
 
 			return nil
 		}

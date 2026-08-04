@@ -3,7 +3,6 @@ package user
 import (
 	"database/sql"
 	"errors"
-	"log"
 )
 
 type Repository interface {

@@ -2,22 +2,24 @@ package handlers
 
 import (
 	"context"
+	"numoney/internal/bot"
 	category "numoney/internal/category"
+	"numoney/internal/user"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *Handler) AddCategory(ctx context.Context, update tgbotapi.Update) error {
-	u, err := h.uRepo.GetByTelegramId(ctx, update.Message.From.ID)
+func (h *Handler) AddCategory(ctx context.Context, user user.User, update tgbotapi.Update) error {
 	catType := "income"
 
-	if h.states.Get(int64(u.ID)) == "add_expense_category" {
+	if h.states.Get(user.ID) == bot.StateAddExpenseCategory {
 		catType = "expense"
 	}
 
-	err = h.cRepo.Save(ctx, &category.Category{
+	err := h.cRepo.Save(ctx, &category.Category{
 		Name:   update.Message.Text,
-		UserId: u.ID,
+		UserID: user.ID,
 		Type:   catType,
 	})
 
@@ -25,5 +27,67 @@ func (h *Handler) AddCategory(ctx context.Context, update tgbotapi.Update) error
 		return err
 	}
 
-	return nil
+	h.states.Set(user.ID, bot.StateNone)
+
+	_, err = h.sendNew(update.Message.Chat.ID, bot.BaseMenu(), "Выберите действие:")
+
+	return err
+}
+
+func (h *Handler) AddCategoryButton(_ context.Context, user user.User, update tgbotapi.Update) error {
+	h.states.Set(user.ID, bot.ChoseCategoryToCreateButton)
+
+	return h.sendEdit(
+		update.CallbackQuery.Message.Chat.ID,
+		update.CallbackQuery.Message.MessageID,
+		bot.AddCategory(),
+		"Выберите тип:",
+	)
+}
+
+func (h *Handler) ChoseCategory(ctx context.Context, user user.User, update tgbotapi.Update) error {
+	categories, err := h.cRepo.GetByUserID(ctx, user.ID)
+
+	if err != nil {
+		return err
+	}
+
+	if len(categories) == 0 {
+		return h.sendEdit(
+			update.CallbackQuery.Message.Chat.ID,
+			update.CallbackQuery.Message.MessageID,
+			bot.NoCategories(),
+			"У вас нет категорий.",
+		)
+	}
+
+	markup, err := bot.CategoriesJSON(categories)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = h.bot.MakeRequest("editMessageReplyMarkup", tgbotapi.Params{
+		"chat_id":      strconv.FormatInt(user.TelegramID, 10),
+		"message_id":   strconv.Itoa(update.CallbackQuery.Message.MessageID),
+		"text":         "Категории",
+		"reply_markup": string(markup),
+	})
+
+	return err
+}
+
+func (h *Handler) ChoseCategoryToCreateButton(_ context.Context, user user.User, update tgbotapi.Update) error {
+	if update.CallbackQuery == nil {
+		return nil
+	}
+
+	h.states.Set(user.ID, update.CallbackQuery.Data)
+
+	return h.sendEdit(
+		update.CallbackQuery.Message.Chat.ID,
+		update.CallbackQuery.Message.MessageID,
+		bot.Back(),
+		"Введите название категории",
+	)
 }

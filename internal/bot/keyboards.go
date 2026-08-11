@@ -2,24 +2,40 @@ package bot
 
 import (
 	"encoding/json"
-	"fmt"
 	"numoney/internal/category"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type Keyboards struct {
+const (
+	AddExpenseButton            = "add_expense_button"
+	AddIncomeButton             = "add_income_button"
+	ChoseCategoryToCreateButton = "chose_category_to_create_button"
+	ChoseStatisticsButton       = "chose_statistics_button"
+	ChoseCategoryButton         = "chose_category_button"
+	AddCategoryButton           = "add_category"
+	TodayStatsButton            = "today_stats"
+	WeekStatsButton             = "week_stats"
+	MonthStatsButton            = "month_stats"
+	AllStatsButton              = "all_stats"
+)
+
+type inlineBtn struct {
+	Text         string `json:"text"`
+	CallbackData string `json:"callback_data,omitempty"`
+	Style        string `json:"style,omitempty"`
 }
 
 func BaseMenu() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📊 Статистика", "Statistics"),
-			tgbotapi.NewInlineKeyboardButtonData("Категории", "Categories"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 Статистика", ChoseStatisticsButton),
+			tgbotapi.NewInlineKeyboardButtonData("Категории", ChoseCategoryButton),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔴 Расход", "Expense"),
-			tgbotapi.NewInlineKeyboardButtonData("🟢 Доход", "Income"),
+			tgbotapi.NewInlineKeyboardButtonData("🔴 Расход", AddExpenseButton),
+			tgbotapi.NewInlineKeyboardButtonData("🟢 Доход", AddIncomeButton),
 		),
 	)
 }
@@ -27,11 +43,11 @@ func BaseMenu() tgbotapi.InlineKeyboardMarkup {
 func AddCategory() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", BackButton),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔴 Расход", "add_expense_category"),
-			tgbotapi.NewInlineKeyboardButtonData("🟢 Доход", "add_income_category"),
+			tgbotapi.NewInlineKeyboardButtonData("🔴 Расход", StateAddExpenseCategory),
+			tgbotapi.NewInlineKeyboardButtonData("🟢 Доход", StateAddIncomeCategory),
 		),
 	)
 }
@@ -39,15 +55,15 @@ func AddCategory() tgbotapi.InlineKeyboardMarkup {
 func ChoseStatPeriod() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", BackButton),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("За сегодня", "today_stats"),
-			tgbotapi.NewInlineKeyboardButtonData("За неделю", "week_stats"),
+			tgbotapi.NewInlineKeyboardButtonData("За сегодня", TodayStatsButton),
+			tgbotapi.NewInlineKeyboardButtonData("За неделю", WeekStatsButton),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("За месяц", "month_stats"),
-			tgbotapi.NewInlineKeyboardButtonData("За всё время", "all_stats"),
+			tgbotapi.NewInlineKeyboardButtonData("За месяц", MonthStatsButton),
+			tgbotapi.NewInlineKeyboardButtonData("За всё время", AllStatsButton),
 		),
 	)
 }
@@ -55,7 +71,7 @@ func ChoseStatPeriod() tgbotapi.InlineKeyboardMarkup {
 func Back() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", BackButton),
 		),
 	)
 }
@@ -63,33 +79,22 @@ func Back() tgbotapi.InlineKeyboardMarkup {
 func NoCategories() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить", "add_category"),
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back"),
+			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить", AddCategoryButton),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", BackButton),
 		),
 	)
 }
 
-func CategoriesJSON(c []category.Category) ([]byte, error) {
-	type inlineBtn struct {
-		Text         string `json:"text"`
-		CallbackData string `json:"callback_data,omitempty"`
-		Style        string `json:"style,omitempty"`
-	}
-
-	row1 := []inlineBtn{
-		{Text: "⬅️ Назад", CallbackData: "back"},
-		{Text: "➕ Добавить", CallbackData: "add_category"},
-	}
-
+func buildCategoryKeyboard(firstRow []inlineBtn, categories []category.Category) ([]byte, error) {
 	var rows [][]inlineBtn
 	var currentRow []inlineBtn
 
-	for _, category := range c {
+	for _, cat := range categories {
 		b := inlineBtn{
-			Text:         category.Name,
-			CallbackData: fmt.Sprint(category.ID),
+			Text:         cat.Name,
+			CallbackData: strconv.Itoa(cat.ID),
 		}
-		if category.Type == "income" {
+		if cat.Type == "income" {
 			b.Style = "success"
 		} else {
 			b.Style = "danger"
@@ -107,66 +112,20 @@ func CategoriesJSON(c []category.Category) ([]byte, error) {
 		rows = append(rows, currentRow)
 	}
 
-	allRows := append([][]inlineBtn{row1}, rows...)
-
-	markup, err := json.Marshal(map[string]any{
-		"inline_keyboard": allRows,
+	return json.Marshal(map[string]any{
+		"inline_keyboard": append([][]inlineBtn{firstRow}, rows...),
 	})
+}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return markup, nil
+func CategoriesJSON(c []category.Category) ([]byte, error) {
+	return buildCategoryKeyboard([]inlineBtn{
+		{Text: "⬅️ Назад", CallbackData: BackButton},
+		{Text: "➕ Добавить", CallbackData: AddCategoryButton},
+	}, c)
 }
 
 func ChoseCategoryJSON(c []category.Category) ([]byte, error) {
-	type inlineBtn struct {
-		Text         string `json:"text"`
-		CallbackData string `json:"callback_data,omitempty"`
-		Style        string `json:"style,omitempty"`
-	}
-
-	row1 := []inlineBtn{
-		{Text: "⬅️ Назад", CallbackData: "back"},
-		// {Text: "➕ Добавить", CallbackData: "add_category"},
-	}
-
-	var rows [][]inlineBtn
-	var currentRow []inlineBtn
-
-	for _, category := range c {
-		b := inlineBtn{
-			Text:         category.Name,
-			CallbackData: fmt.Sprint(category.ID),
-		}
-		if category.Type == "income" {
-			b.Style = "success"
-		} else {
-			b.Style = "danger"
-		}
-
-		currentRow = append(currentRow, b)
-
-		if len(currentRow) == 3 {
-			rows = append(rows, currentRow)
-			currentRow = nil
-		}
-	}
-
-	if len(currentRow) > 0 {
-		rows = append(rows, currentRow)
-	}
-
-	allRows := append([][]inlineBtn{row1}, rows...)
-
-	markup, err := json.Marshal(map[string]any{
-		"inline_keyboard": allRows,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return markup, nil
+	return buildCategoryKeyboard([]inlineBtn{
+		{Text: "⬅️ Назад", CallbackData: BackButton},
+	}, c)
 }

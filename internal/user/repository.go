@@ -1,13 +1,14 @@
 package user
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 )
 
 type Repository interface {
-	Save(id int, user *User) error
-	GetByTelegramId(id int64) (User, error)
+	Save(ctx context.Context, id int64, user *User) error
+	GetByTelegramID(ctx context.Context, id int64) (User, error)
 }
 
 type MySQLRepository struct {
@@ -18,35 +19,35 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 	return &MySQLRepository{db}
 }
 
-func (r MySQLRepository) Save(id int, user *User) error {
-	result, err := r.db.Exec("insert into users (telegram_id) values (?)", id)
+func (r *MySQLRepository) Save(ctx context.Context, id int64, user *User) error {
+	result, err := r.db.ExecContext(ctx, "INSERT INTO users (telegram_id) VALUES (?)", id)
 
 	if err != nil {
 		return err
 	}
 
-	newId, err := result.LastInsertId()
+	newID, err := result.LastInsertId()
 
 	if err != nil {
 		return err
 	}
 
-	*user = User{int(newId), int(id)}
+	*user = User{newID, id}
 
 	return nil
 }
 
-func (r *MySQLRepository) GetByTelegramId(id int64) (User, error) {
+func (r *MySQLRepository) GetByTelegramID(ctx context.Context, id int64) (User, error) {
 	var user User
 
-	err := r.db.QueryRow("select id, telegram_id from users where telegram_id = ?", id).Scan(&user.ID, &user.TelegramId)
+	err := r.db.QueryRowContext(ctx, "SELECT id, telegram_id FROM users WHERE telegram_id = ?", id).Scan(&user.ID, &user.TelegramID)
 
 	switch {
 	case err == nil:
 		return user, nil
 
 	case errors.Is(err, sql.ErrNoRows):
-		if err := r.Save(int(id), &user); err != nil {
+		if err := r.Save(ctx, id, &user); err != nil {
 			return User{}, err
 		}
 

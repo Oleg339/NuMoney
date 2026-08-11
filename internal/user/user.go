@@ -1,6 +1,6 @@
 package user
 
 type User struct {
-	ID         int
-	TelegramId int
+	ID         int64
+	TelegramID int64
 }

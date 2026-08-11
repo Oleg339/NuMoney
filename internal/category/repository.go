@@ -1,14 +1,15 @@
 package category
 
 import (
+	"context"
 	"database/sql"
-	"log"
 )
 
 type Repository interface {
-	GetByUserId(id int) ([]Category, error)
-	GetByUserIdAndType(id int, Type string) ([]Category, error)
-	Save(c *Category) error
+	GetByUserID(ctx context.Context, id int64) ([]Category, error)
+	Find(ctx context.Context, id int64, userID int64) (Category, error)
+	GetByUserIDAndType(ctx context.Context, id int64, catType string) ([]Category, error)
+	Save(ctx context.Context, c *Category) error
 }
 
 type MySQLRepository struct {
@@ -19,12 +20,10 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 	return &MySQLRepository{db}
 }
 
-func (r *MySQLRepository) Save(c *Category) error {
-	res, err := r.db.Exec("insert into categories (name, type, user_id) values (?,?,?)", c.Name, c.Type, c.UserId)
+func (r *MySQLRepository) Save(ctx context.Context, c *Category) error {
+	res, err := r.db.ExecContext(ctx, "INSERT INTO categories (name, type, user_id) VALUES (?,?,?)", c.Name, c.Type, c.UserID)
 
 	if err != nil {
-		log.Print(c)
-
 		return err
 	}
 
@@ -39,10 +38,24 @@ func (r *MySQLRepository) Save(c *Category) error {
 	return nil
 }
 
-func (r *MySQLRepository) GetByUserId(id int) ([]Category, error) {
+func (r *MySQLRepository) Find(ctx context.Context, id int64, userID int64) (Category, error) {
+	var c Category
+
+	row := r.db.QueryRowContext(ctx, "SELECT id, name, type FROM categories WHERE id = ? AND user_id = ?", id, userID)
+
+	err := row.Scan(&c.ID, &c.Name, &c.Type)
+
+	if err != nil {
+		return c, err
+	}
+
+	return c, nil
+}
+
+func (r *MySQLRepository) GetByUserID(ctx context.Context, id int64) ([]Category, error) {
 	var categories []Category
 
-	rows, err := r.db.Query("select id, name, type from categories where user_id = ? order by type desc", id)
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, type FROM categories WHERE user_id = ? ORDER BY type DESC", id)
 	if err != nil {
 		return nil, err
 	}
@@ -51,26 +64,24 @@ func (r *MySQLRepository) GetByUserId(id int) ([]Category, error) {
 
 	for rows.Next() {
 		var c Category
-		e := rows.Scan(&c.ID, &c.Name, &c.Type)
-
-		if e != nil {
-			return nil, e
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type); err != nil {
+			return nil, err
 		}
 
 		categories = append(categories, c)
 	}
 
-	if e := rows.Err(); e != nil {
-		return nil, e
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return categories, nil
 }
 
-func (r *MySQLRepository) GetByUserIdAndType(id int, Type string) ([]Category, error) {
+func (r *MySQLRepository) GetByUserIDAndType(ctx context.Context, id int64, catType string) ([]Category, error) {
 	var categories []Category
 
-	rows, err := r.db.Query("select id, name, type from categories where user_id = ? and type = ?", id, Type)
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, type FROM categories WHERE user_id = ? AND type = ?", id, catType)
 	if err != nil {
 		return nil, err
 	}
@@ -79,17 +90,15 @@ func (r *MySQLRepository) GetByUserIdAndType(id int, Type string) ([]Category, e
 
 	for rows.Next() {
 		var c Category
-		e := rows.Scan(&c.ID, &c.Name, &c.Type)
-
-		if e != nil {
-			return nil, e
+		if err := rows.Scan(&c.ID, &c.Name, &c.Type); err != nil {
+			return nil, err
 		}
 
 		categories = append(categories, c)
 	}
 
-	if e := rows.Err(); e != nil {
-		return nil, e
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return categories, nil

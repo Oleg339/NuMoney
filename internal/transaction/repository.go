@@ -1,14 +1,14 @@
 package transaction
 
 import (
+	"context"
 	"database/sql"
-	"log"
 	"time"
 )
 
 type Repository interface {
-	Save(t *Transaction) error
-	GetStatsForPeriodFromDb(userId int, from time.Time, to time.Time) ([]Stat, error)
+	Save(ctx context.Context, t *Transaction) error
+	GetStatsForPeriodFromDB(ctx context.Context, userID int64, from time.Time, to time.Time) ([]Stat, error)
 }
 
 type MySQLRepository struct {
@@ -25,8 +25,8 @@ func NewMySQLRepository(db *sql.DB) *MySQLRepository {
 	return &MySQLRepository{db}
 }
 
-func (r *MySQLRepository) Save(t *Transaction) error {
-	res, err := r.db.Exec("insert into transactions (category_id, user_id, amount, comment) values (?,?,?,?)", t.CategoryId, t.UserId, t.Amount, t.Comment)
+func (r *MySQLRepository) Save(ctx context.Context, t *Transaction) error {
+	res, err := r.db.ExecContext(ctx, "INSERT INTO transactions (category_id, user_id, amount, comment) VALUES (?,?,?,?)", t.CategoryID, t.UserID, t.Amount, t.Comment)
 
 	if err != nil {
 		return err
@@ -43,14 +43,14 @@ func (r *MySQLRepository) Save(t *Transaction) error {
 	return nil
 }
 
-func (r *MySQLRepository) GetStatsForPeriodFromDb(userId int, from time.Time, to time.Time) ([]Stat, error) {
-	rows, err := r.db.Query(`
-          SELECT c.name, c.type, SUM(t.amount)
-          FROM transactions t
-          JOIN categories c ON c.id = t.category_id
-          WHERE t.user_id = ? AND t.created_at BETWEEN ? AND ? 
-          GROUP BY c.id order by type asc
-      `, userId, from, to)
+func (r *MySQLRepository) GetStatsForPeriodFromDB(ctx context.Context, userID int64, from time.Time, to time.Time) ([]Stat, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT c.name, c.type, SUM(t.amount)
+		FROM transactions t
+		JOIN categories c ON c.id = t.category_id
+		WHERE t.user_id = ? AND t.created_at BETWEEN ? AND ?
+		GROUP BY c.id ORDER BY type ASC
+	`, userID, from, to)
 
 	if err != nil {
 		return nil, err
@@ -62,17 +62,15 @@ func (r *MySQLRepository) GetStatsForPeriodFromDb(userId int, from time.Time, to
 
 	for rows.Next() {
 		var stat Stat
-		err := rows.Scan(&stat.Name, &stat.Type, &stat.Amount)
-
-		if err != nil {
+		if err := rows.Scan(&stat.Name, &stat.Type, &stat.Amount); err != nil {
 			return nil, err
 		}
 
 		stats = append(stats, stat)
 	}
 
-	if e := rows.Err(); e != nil {
-		return nil, e
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return stats, nil

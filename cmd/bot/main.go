@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"numoney/internal/bot"
+	"numoney/internal/bot/handlers"
 	"numoney/internal/category"
 	"numoney/internal/transaction"
 	"numoney/internal/user"
@@ -36,18 +37,39 @@ func main() {
 
 	b.Debug, _ = strconv.ParseBool(os.Getenv("BOT_DEBUG"))
 
-	log.Printf("Authorized on account %s", b.Self.UserName)
+	cfg := tgbotapi.NewUpdate(0)
 
-	update := tgbotapi.NewUpdate(0)
+	cfg.Timeout = 60
 
-	update.Timeout = 60
+	updates := b.GetUpdatesChan(cfg)
 
-	updates := b.GetUpdatesChan(update)
+	handler := handlers.NewHandler(b, categoryRepository, transactionRepository, states)
 
-	handler := bot.NewHandler(b, userRepository, categoryRepository, transactionRepository, states)
+	router := bot.NewRouter(userRepository, states)
+
+	router.OnState(bot.StateNone, handler.InitMessage)
+	router.OnCallback(bot.BackButton, handler.InitMessage)
+
+	router.OnCallback(bot.ChoseStatisticsButton, handler.ChooseStatisticsPeriod)
+	router.OnState(bot.StateStatistics, handler.GetStatistics)
+
+	router.OnCallback(bot.ChoseCategoryButton, handler.ChoseCategory)
+	router.OnCallback(bot.AddCategoryButton, handler.AddCategoryButton)
+	router.OnState(bot.ChoseCategoryToCreateButton, handler.ChoseCategoryToCreateButton)
+	router.OnState(bot.StateAddExpenseCategory, handler.AddCategory)
+	router.OnState(bot.StateAddIncomeCategory, handler.AddCategory)
+
+	router.OnCallback(bot.AddExpenseButton, handler.AddTransactionButton)
+	router.OnCallback(bot.AddIncomeButton, handler.AddTransactionButton)
+	router.OnState(bot.StateChoseTransactionCategory, handler.StateChoseTransactionCategory)
+	router.OnState(bot.StateAddTransactionAmount, handler.AddTransactionAmount)
 
 	for update := range updates {
-		handler.Handle(update)
+		err = router.Handle(update)
+
+		if err != nil {
+			log.Println("handle error:", err)
+		}
 	}
 }
 

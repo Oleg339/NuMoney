@@ -15,35 +15,36 @@ func NewState() *State {
 	}
 }
 
-func (s *State) Get(userId int64) string {
+func (s *State) Get(userID int64) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.state[userId]
+	return s.state[userID]
 }
 
-func (s *State) Set(userId int64, state string) {
+func (s *State) Set(userID int64, state string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.state[userId] = state
+	s.state[userID] = state
 }
 
-func (s *State) GetCategory(userId int64) int {
+func (s *State) GetCategory(userID int64) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.selectedCategory[userId]
+	return s.selectedCategory[userID]
 }
 
-func (s *State) SetCategory(userId int64, category int) {
+func (s *State) SetCategory(userID int64, category int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.selectedCategory[userId] = category
+	s.selectedCategory[userID] = category
 }
 
 const (
-	StateNone                 = ""
-	StateAddCategoryName      = "add_category_name"
-	StateAddCategoryType      = "add_category_type"
-	StateAddTransaction       = "add_transaction"
-	StateAddTransactionAmount = "add_transaction_amount"
-	StateStaistics            = "statistics"
+	StateNone                     = ""
+	StateAddTransactionAmount     = "add_transaction_amount"
+	StateStatistics                = "statistics"
+	StateAddExpenseCategory       = "add_expense_category"
+	StateAddIncomeCategory        = "add_income_category"
+	BackButton                    = "back"
+	StateChoseTransactionCategory = "chose_transaction_category"
 )

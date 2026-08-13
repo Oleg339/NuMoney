@@ -43,14 +43,14 @@ func (h *Handler) GetStatistics(ctx context.Context, user user.User, update tgbo
 			now.Location())
 
 	case bot.AllStatsButton:
-		from = time.Time{}
+		from = time.Date(2000, 1, 1, 0, 0, 0, 0, now.Location())
 		to = time.Now()
 
 	default:
 		return nil
 	}
 
-	stats, err := h.tRepo.GetStatsForPeriodFromDB(ctx, user.ID, from, to)
+	stats, err := h.tService.GetStatsForPeriod(ctx, user.ID, from, to)
 
 	if err != nil {
 		return err

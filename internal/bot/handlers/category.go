@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"numoney/internal/bot"
-	category "numoney/internal/category"
 	"numoney/internal/user"
 	"strconv"
 
@@ -17,12 +16,8 @@ func (h *Handler) AddCategory(ctx context.Context, user user.User, update tgbota
 		catType = "expense"
 	}
 
-	err := h.cRepo.Save(ctx, &category.Category{
-		Name:   update.Message.Text,
-		UserID: user.ID,
-		Type:   catType,
-	})
-
+	_, err := h.cService.Create(ctx, user.ID, update.Message.Text, catType)
+	
 	if err != nil {
 		return err
 	}
@@ -46,7 +41,7 @@ func (h *Handler) AddCategoryButton(_ context.Context, user user.User, update tg
 }
 
 func (h *Handler) ChoseCategory(ctx context.Context, user user.User, update tgbotapi.Update) error {
-	categories, err := h.cRepo.GetByUserID(ctx, user.ID)
+	categories, err := h.cService.GetByUserID(ctx, user.ID)
 
 	if err != nil {
 		return err

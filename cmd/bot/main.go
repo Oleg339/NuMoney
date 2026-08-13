@@ -24,9 +24,6 @@ func main() {
 	db := getConnection()
 	defer db.Close()
 
-	categoryRepository := category.NewMySQLRepository(db)
-	transactionRepository := transaction.NewMySQLRepository(db)
-	userRepository := user.NewMySQLRepository(db)
 	states := bot.NewState()
 
 	b, err := tgbotapi.NewBotAPI(token)
@@ -43,9 +40,24 @@ func main() {
 
 	updates := b.GetUpdatesChan(cfg)
 
-	handler := handlers.NewHandler(b, categoryRepository, transactionRepository, states)
+	handler := handlers.NewHandler(
+		b,
+		category.NewService(
+			category.NewMySQLRepository(db),
+		),
+		transaction.NewService(
+			transaction.NewMySQLRepository(db),
+			category.NewMySQLRepository(db),
+		),
+		states,
+	)
 
-	router := bot.NewRouter(userRepository, states)
+	router := bot.NewRouter(
+		user.NewService(
+			user.NewMySQLRepository(db),
+		),
+		states,
+	)
 
 	router.OnState(bot.StateNone, handler.InitMessage)
 	router.OnCallback(bot.BackButton, handler.InitMessage)

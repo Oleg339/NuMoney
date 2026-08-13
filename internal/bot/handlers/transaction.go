@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"numoney/internal/bot"
-	"numoney/internal/transaction"
+	"numoney/internal/category"
 	"numoney/internal/user"
 	"strconv"
 	"strings"
@@ -14,13 +15,13 @@ import (
 func (h *Handler) AddTransactionButton(ctx context.Context, user user.User, update tgbotapi.Update) error {
 	h.states.Set(user.ID, bot.StateChoseTransactionCategory)
 
-	kind := "expense"
+	kind := category.TypeExpense
 
 	if update.CallbackQuery.Data == bot.AddIncomeButton {
-		kind = "income"
+		kind = category.TypeIncome
 	}
 
-	categories, err := h.cRepo.GetByUserIDAndType(ctx, user.ID, kind)
+	categories, err := h.cService.GetByUserIDAndType(ctx, user.ID, kind)
 
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ func (h *Handler) StateChoseTransactionCategory(ctx context.Context, user user.U
 		return h.InitMessage(ctx, user, update)
 	}
 
-	cat, err := h.cRepo.Find(ctx, int64(categoryID), user.ID)
+	cat, err := h.cService.Find(ctx, int64(categoryID), user.ID)
 	if err != nil {
 		_, sendErr := h.sendNew(update.CallbackQuery.Message.Chat.ID, tgbotapi.InlineKeyboardMarkup{}, "Категория не найдена")
 		if sendErr != nil {
@@ -87,19 +88,38 @@ func (h *Handler) AddTransactionAmount(ctx context.Context, user user.User, upda
 		return err
 	}
 
-	err = h.tRepo.Save(ctx, &transaction.Transaction{
-		Amount:     int(amount * 100),
-		CategoryID: h.states.GetCategory(user.ID),
-		UserID:     user.ID,
-	})
+	catID := h.states.GetCategory(user.ID)
 
-	if err != nil {
-		return err
+	_, err = h.tService.Create(ctx, amount, catID, user.ID)
+
+	switch {
+	case err == nil:
+		h.states.Set(user.ID, bot.StateNone)
+
+		h.states.SetCategory(user.ID, 0)
+
+		return h.InitMessage(ctx, user, update)
+
+	case errors.Is(err, category.ErrNotFound):
+		_, err := h.sendNew(
+			update.Message.Chat.ID,
+			tgbotapi.InlineKeyboardMarkup{},
+			"Категории не существует",
+		)
+
+		h.states.Set(user.ID, bot.StateNone)
+
+		h.states.SetCategory(user.ID, 0)
+
+		if err != nil {
+			return err
+		}
+		
+		return nil 
 	}
 
 	h.states.Set(user.ID, bot.StateNone)
 
 	h.states.SetCategory(user.ID, 0)
-
-	return h.InitMessage(ctx, user, update)
+	return err
 }

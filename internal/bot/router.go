@@ -14,15 +14,15 @@ type HandlerFunc func(ctx context.Context, user user.User, update tgbotapi.Updat
 type Router struct {
 	callbacks map[string]HandlerFunc
 	states    map[string]HandlerFunc
-	uRepo     user.Repository
+	uService  user.Service
 	state     *State
 }
 
-func NewRouter(uRepo user.Repository, state *State) *Router {
+func NewRouter(uService user.Service, state *State) *Router {
 	return &Router{
 		callbacks: make(map[string]HandlerFunc),
 		states:    make(map[string]HandlerFunc),
-		uRepo:     uRepo,
+		uService:  uService,
 		state:     state,
 	}
 }
@@ -40,9 +40,12 @@ func (r *Router) Handle(update tgbotapi.Update) error {
 
 	defer cancel()
 
-	if update.CallbackQuery != nil {
-		user, err := r.uRepo.GetByTelegramID(ctx, update.CallbackQuery.From.ID)
+	user, err := r.uService.EnsureRegistered(
+		ctx,
+		update.CallbackQuery.From.ID,
+	)
 
+	if update.CallbackQuery != nil {
 		if err != nil {
 			return err
 		}
@@ -63,14 +66,12 @@ func (r *Router) Handle(update tgbotapi.Update) error {
 	}
 
 	if update.Message != nil {
-		user, err := r.uRepo.GetByTelegramID(ctx, update.Message.From.ID)
-
 		if err != nil {
 			return err
 		}
 
 		state := r.state.Get(user.ID)
-		
+
 		fn, ok := r.states[state]
 		if ok {
 			return fn(ctx, user, update)

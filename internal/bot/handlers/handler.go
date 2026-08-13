@@ -11,14 +11,14 @@ import (
 )
 
 type Handler struct {
-	bot    *tgbotapi.BotAPI
-	cRepo  category.Repository
-	tRepo  transaction.Repository
-	states *bot.State
+	bot      *tgbotapi.BotAPI
+	cService category.Service
+	tService transaction.Service
+	states   *bot.State
 }
 
-func NewHandler(bot *tgbotapi.BotAPI, cRepo category.Repository, tRepo transaction.Repository, states *bot.State) *Handler {
-	return &Handler{bot, cRepo, tRepo, states}
+func NewHandler(bot *tgbotapi.BotAPI, cService category.Service, tService transaction.Service, states *bot.State) *Handler {
+	return &Handler{bot: bot, cService: cService, tService: tService, states: states}
 }
 
 func (h *Handler) sendEdit(chatID int64, messageID int, keyboard tgbotapi.InlineKeyboardMarkup, text string) error {

@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"database/sql"
-	"errors"
 )
 
 type Repository interface {
@@ -42,18 +41,9 @@ func (r *MySQLRepository) GetByTelegramID(ctx context.Context, id int64) (User, 
 
 	err := r.db.QueryRowContext(ctx, "SELECT id, telegram_id FROM users WHERE telegram_id = ?", id).Scan(&user.ID, &user.TelegramID)
 
-	switch {
-	case err == nil:
-		return user, nil
-
-	case errors.Is(err, sql.ErrNoRows):
-		if err := r.Save(ctx, id, &user); err != nil {
-			return User{}, err
-		}
-
-		return user, nil
-
-	default:
+	if err != nil {
 		return User{}, err
 	}
+
+	return user, nil
 }

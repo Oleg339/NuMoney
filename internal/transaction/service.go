@@ -18,7 +18,7 @@ func NewService(rep Repository, catRepo category.Repository) Service {
 }
 
 var (
-	ErrCategoryNotFound = errors.New("category not found")
+	ErrUnknownPeriod    = errors.New("unknown period")
 )
 
 func (s *Service) Create(ctx context.Context, amount float64, catID int, userID int64) (Transaction, error) {
@@ -37,4 +37,35 @@ func (s *Service) Create(ctx context.Context, amount float64, catID int, userID 
 
 func (s *Service) GetStatsForPeriod(ctx context.Context, userID int64, from, to time.Time) ([]Stat, error) {
 	return s.repository.GetStatsForPeriodFromDB(ctx, userID, from, to)
+}
+
+func resolvePeriod(kind string) (from, to time.Time, err error) {
+      now := time.Now()
+
+      switch kind {
+      case "today_stats":
+			from = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+
+      case "week_stats":
+			weekday := int(now.Weekday())
+			if weekday == 0 {
+					weekday = 7
+			}
+			from = time.Date(now.Year(), now.Month(), now.Day()-weekday+1, 0, 0, 0, 0, now.Location())
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+
+      case "month_stats":
+			from = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+			to = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+
+      case "all_stats":
+			from = time.Date(2000, 1, 1, 0, 0, 0, 0, now.Location())
+			to = now
+
+      default:
+			err = ErrUnknownPeriod
+      }
+
+      return
 }

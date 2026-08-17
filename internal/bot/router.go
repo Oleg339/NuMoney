@@ -42,7 +42,7 @@ func (r *Router) Handle(update tgbotapi.Update) error {
 
 	user, err := r.uService.EnsureRegistered(
 		ctx,
-		update.CallbackQuery.From.ID,
+		update.SentFrom().ID,
 	)
 
 	if update.CallbackQuery != nil {

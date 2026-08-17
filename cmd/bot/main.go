@@ -77,11 +77,13 @@ func main() {
 	router.OnState(bot.StateAddTransactionAmount, handler.AddTransactionAmount)
 
 	for update := range updates {
-		err = router.Handle(update)
+		go func(u tgbotapi.Update) {
+			err = router.Handle(u)
 
-		if err != nil {
-			log.Println("handle error:", err)
-		}
+			if err != nil {
+				log.Println("handle error:", err)
+			}
+		}(update)
 	}
 }
 
@@ -103,6 +105,12 @@ func getConnection() *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if err := db.Ping(); err != nil {
+		log.Fatal("cannot connect to db:", err)
+	}
+
+	fmt.Println("connections: ", db.Stats().OpenConnections)
 
 	return db
 }

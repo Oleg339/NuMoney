@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,7 +11,10 @@ import (
 	"numoney/internal/transaction"
 	"numoney/internal/user"
 	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -19,7 +23,17 @@ import (
 
 func main() {
 	godotenv.Load()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	var wg sync.WaitGroup
+
 	token := os.Getenv("BOT_TOKEN")
+
+	if token == "" {
+		log.Fatal("BOT_TOKEN is not set")
+	}
 
 	db := getConnection()
 	defer db.Close()
@@ -76,14 +90,40 @@ func main() {
 	router.OnState(bot.StateChoseTransactionCategory, handler.StateChoseTransactionCategory)
 	router.OnState(bot.StateAddTransactionAmount, handler.AddTransactionAmount)
 
-	for update := range updates {
-		go func(u tgbotapi.Update) {
-			err = router.Handle(u)
+	workerCount, err := strconv.Atoi(os.Getenv("WORKER_COUNT"))
 
-			if err != nil {
-				log.Println("handle error:", err)
+	if err != nil {
+		log.Fatal("WORKER_COUNT should be int")
+	}
+
+	jobs := make(chan tgbotapi.Update, 100)
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for update := range jobs {
+				err := router.Handle(update)
+
+				if err != nil {
+					log.Println("handle error:", err)
+				}
 			}
-		}(update)
+		}()
+	}
+
+	for {
+		select {
+		case update := <-updates:
+			jobs <- update
+
+		case <-ctx.Done():
+			b.StopReceivingUpdates()
+			close(jobs)
+			wg.Wait()
+			return
+		}
+
 	}
 }
 
